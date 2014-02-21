@@ -4,9 +4,9 @@ using System.Reflection.Emit;
 
 namespace SharpMap.Data.Providers.Business
 {
-    internal class TypeUtility<TObjectType>
+    public class TypeUtility<TObjectType>
     {
-        internal delegate TMemberType MemberGetDelegate<out TMemberType>(TObjectType obj);
+        public delegate TMemberType MemberGetDelegate<out TMemberType>(TObjectType obj);
 
         internal delegate object MemberGetDelegate(TObjectType obj);
 

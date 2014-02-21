@@ -20,7 +20,9 @@ namespace SharpMap.Data.Providers.Business
         /// <returns>A provider</returns>
         public static IProvider Create<T>(IEnumerable<T> features)
         {
-            return Create(new InMemoryBusinessObjectAccess<T>(features));
+            var boa = new InMemoryBusinessObjectAccess<T>();
+            boa.Insert(features);
+            return Create(boa);
         }
 
         /// <summary>

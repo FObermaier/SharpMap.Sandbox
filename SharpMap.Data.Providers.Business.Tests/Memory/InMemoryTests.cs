@@ -1,5 +1,8 @@
-﻿using GeoAPI.Geometries;
+﻿using System.Drawing;
+using System.Drawing.Imaging;
+using GeoAPI.Geometries;
 using NUnit.Framework;
+using SharpMap.Layers;
 
 namespace SharpMap.Data.Providers.Business.Tests.Memory
 {
@@ -77,5 +80,32 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
             Assert.AreEqual(new Coordinate(1, 1), ((FeatureDataRow)fds.Tables[0].Rows[0]).Geometry.Coordinate);
         }
 
+        [Test]
+        public void TestGetMap()
+        {
+            using (var m = new Map(new Size(300, 300)))
+            {
+                m.BackColor = Color.White;
+                
+                IProvider p = null;
+                var data = PointsOfInterest.Create();
+                Assert.DoesNotThrow(() => p = BusinessObjectProvider.Create(data));
+
+                m.Layers.Add(new VectorLayer("POIs", p));
+                var ll = new LabelLayer("POIsLabel");
+                ll.DataSource = p;
+                ll.LabelStringDelegate = (fdr) => string.Format("{0} - {1}", fdr["ID"], fdr["Address"]);
+                m.Layers.Add(ll);
+
+                m.ZoomToExtents();
+                m.Zoom *= 1.1;
+
+                using (var img = m.GetMap())
+                {
+                    img.Save("PoiImage.png", ImageFormat.Png);
+                }
+            }
+            
+        }
     }
 }

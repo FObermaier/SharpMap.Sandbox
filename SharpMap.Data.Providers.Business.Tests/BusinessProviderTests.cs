@@ -6,16 +6,6 @@ using NUnit.Framework;
 
 namespace SharpMap.Data.Providers.Business.Tests
 {
-    [SetUpFixture]
-    public class SetUpFixture
-    {
-        [TestFixtureSetUp]
-        public void SetUp()
-        {
-            GeoAPI.GeometryServiceProvider.Instance = NetTopologySuite.NtsGeometryServices.Instance;
-        }
-    }
-
     [TestFixture]
     public class TypeUtilityTest
     {

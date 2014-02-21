@@ -22,26 +22,56 @@ using NetTopologySuite.Geometries;
 
 namespace SharpMap.Data.Providers.Business
 {
-    /// <summary>
-    /// Quick and dirty implementation of an in-memory business object store
-    /// </summary>
-    /// <typeparam name="T">The type of the business object</typeparam>
-    internal class InMemoryBusinessObjectAccess<T> : IBusinessObjectSource<T>
+    public abstract class BusinessObjectAccessBase<T> : IBusinessObjectSource<T>
     {
-        private readonly Dictionary<uint, T> _businessObjects;
+        protected static readonly TypeUtility<T>.MemberGetDelegate<uint> _getId;
+        protected static readonly TypeUtility<T>.MemberGetDelegate<IGeometry> _getGeometry;
 
-        private static readonly TypeUtility<T>.MemberGetDelegate<uint> _getId;
-        private static readonly TypeUtility<T>.MemberGetDelegate<IGeometry> _getGeometry;
-        private Envelope _extents;
-
-        /// <summary>
-        /// Static constructor
-        /// </summary>
-        static InMemoryBusinessObjectAccess()
+        static BusinessObjectAccessBase()
         {
             _getId = TypeUtility<T>.GetMemberGetDelegate<uint>(typeof(BusinessObjectIdentifierAttribute));
             _getGeometry = TypeUtility<T>.GetMemberGetDelegate<IGeometry>(typeof(BusinessObjectGeometryAttribute));
         }
+
+        public abstract string Title { get; }
+        public abstract IEnumerable<T> Select(Envelope box);
+        public abstract IEnumerable<T> Select(IGeometry geom);
+        public abstract T Select(uint id);
+        public abstract void Update(IEnumerable<T> businessObjects);
+        public abstract void Delete(IEnumerable<T> businessObjects);
+        public abstract void Insert(IEnumerable<T> businessObjects);
+
+        public IGeometry GetGeometry(T feature)
+        {
+            return _getGeometry(feature);
+        }
+
+        public uint GetId(T feature)
+        {
+            return _getId(feature);
+        }
+
+        public abstract int Count { get; }
+
+        protected Envelope CachedExtents { get; set; }
+
+        public virtual Envelope GetExtents()
+        {
+            if (CachedExtents == null)
+                throw new InvalidOperationException("You need to set Cached before using this function or override GetExtents");
+            return CachedExtents;
+        }
+    }
+
+    /// <summary>
+    /// Quick and dirty implementation of an in-memory business object store
+    /// </summary>
+    /// <typeparam name="T">The type of the business object</typeparam>
+    internal class InMemoryBusinessObjectAccess<T> : BusinessObjectAccessBase<T>
+    {
+        private readonly Dictionary<uint, T> _businessObjects;
+
+        private readonly string _title;
 
         /// <summary>
         /// Creates an instance of this class
@@ -49,23 +79,16 @@ namespace SharpMap.Data.Providers.Business
         public InMemoryBusinessObjectAccess()
         {
             _businessObjects = new Dictionary<uint, T>();
-        }
-
-        /// <summary>
-        /// Creates an instance of this class
-        /// </summary>
-        /// <param name="features">The features to insert</param>
-        public InMemoryBusinessObjectAccess(IEnumerable<T> features)
-            :this()
-        {
-            Insert(features);
-            Title = typeof (T).Name;
+            _title = typeof(T).Name;
         }
 
         /// <summary>
         /// Gets a value identifying the business object
         /// </summary>
-        public string Title { get; private set; }
+        public override string Title
+        {
+            get { return _title; }
+        }
 
 
         /// <summary>
@@ -73,7 +96,7 @@ namespace SharpMap.Data.Providers.Business
         /// </summary>
         /// <param name="box"></param>
         /// <returns></returns>
-        public IEnumerable<T> Select(Envelope box)
+        public override IEnumerable<T> Select(Envelope box)
         {
             return Select(new GeometryFactory().ToGeometry(box));
         }
@@ -83,7 +106,7 @@ namespace SharpMap.Data.Providers.Business
         /// </summary>
         /// <param name="geom">A geometry</param>
         /// <returns></returns>
-        public IEnumerable<T> Select(IGeometry geom)
+        public override IEnumerable<T> Select(IGeometry geom)
         {
             var prep = NetTopologySuite.Geometries.Prepared.PreparedGeometryFactory.Prepare(geom);
 
@@ -103,7 +126,7 @@ namespace SharpMap.Data.Providers.Business
         /// <param name="id">the id of the feature</param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        public T Select(uint id)
+        public override T Select(uint id)
         {
             T res;
             if (_businessObjects.TryGetValue(id, out res))
@@ -115,7 +138,7 @@ namespace SharpMap.Data.Providers.Business
         /// Update the provided <paramref name="features"/>
         /// </summary>
         /// <param name="features">The features that need to be updated</param>
-        public void Update(IEnumerable<T> features)
+        public override void Update(IEnumerable<T> features)
         {
             Delete(features);
             foreach (T feature in features)
@@ -128,47 +151,48 @@ namespace SharpMap.Data.Providers.Business
         /// Delete the provided <paramref name="features"/>
         /// </summary>
         /// <param name="features">The features that need to be deleted</param>
-        public void Delete(IEnumerable<T> features)
+        public override void Delete(IEnumerable<T> features)
         {
             foreach (T feature in features)
             {
                 _businessObjects.Remove(_getId(feature));
             }
+            CachedExtents = null;
         }
 
         /// <summary>
         /// Insert the provided <paramref name="features"/>
         /// </summary>
         /// <param name="features">The features that need to be inserted</param>
-        public void Insert(IEnumerable<T> features)
+        public override void Insert(IEnumerable<T> features)
         {
-            _extents = _extents ?? new Envelope();
             foreach (T feature in features)
             {
                 _businessObjects.Add(_getId(feature), feature);
-                var g = _getGeometry(feature);
-                _extents.ExpandToInclude(g.EnvelopeInternal);
             }
+            CachedExtents = null;
         }
 
-        public IGeometry GetGeometry(T feature)
-        {
-            return _getGeometry(feature);
-        }
-
-        public uint GetId(T feature)
-        {
-            return _getId(feature);
-        }
-
-        public int Count
+        public override int Count
         {
             get { return _businessObjects.Count; }
         }
 
-        public Envelope GetExtents()
+        public override Envelope GetExtents()
         {
-            return _extents;
+            return CachedExtents ?? (CachedExtents = ComputeExtents());
+        }
+
+        private Envelope ComputeExtents()
+        {
+            var res = new Envelope();
+            foreach (var bo in _businessObjects.Values)
+            {
+                var g = _getGeometry(bo);
+                if (g != null && !g.IsEmpty)
+                    res.ExpandToInclude(g.EnvelopeInternal);
+            }
+            return res;
         }
     }
 }
