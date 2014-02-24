@@ -128,9 +128,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SharpMap.Data.Providers.Business\SharpMap.Data.Providers.Business.csproj">
+    <ProjectReference Include="..\SharpMap.Data.Providers.Business\SharpMap.Business.csproj">
       <Project>{ac492306-4594-4e1e-a7b4-8982937061f8}</Project>
-      <Name>SharpMap.Data.Providers.Business</Name>
+      <Name>SharpMap.Business</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

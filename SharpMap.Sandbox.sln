@@ -8,7 +8,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{40C40D
 		.nuget\NuGet.targets = .nuget\NuGet.targets
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMap.Data.Providers.Business", "SharpMap.Data.Providers.Business\SharpMap.Data.Providers.Business.csproj", "{AC492306-4594-4E1E-A7B4-8982937061F8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMap.Business", "SharpMap.Data.Providers.Business\SharpMap.Business.csproj", "{AC492306-4594-4E1E-A7B4-8982937061F8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMap.Data.Providers.Business.Tests", "SharpMap.Data.Providers.Business.Tests\SharpMap.Data.Providers.Business.Tests.csproj", "{6BB66868-62EA-49C7-A6F4-06B87E2BDE6D}"
 EndProject

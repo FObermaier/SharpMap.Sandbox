@@ -37,9 +37,13 @@ namespace SharpMap.Data.Providers.Business
         }
     }
 
+    [Serializable]
     public class BusinessObjectProvider<TFeature> : IProvider
     {
+        [NonSerialized]
         private static FeatureDataTable SchemaTable;
+
+        [NonSerialized]
         private static readonly List<Func<TFeature, object>> GetDelegates;
         
         static BusinessObjectProvider()
