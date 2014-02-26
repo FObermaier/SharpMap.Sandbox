@@ -33,7 +33,39 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
     [Serializable]
     public class LinkWithLoadRenderer : BusinessObjectToImageRenderer<LinkWithLoad>
     {
-        private readonly OffsetCurveBuilder _offsetCurveBuilder = new OffsetCurveBuilder(new PrecisionModel(), new BufferParameters());
+        private readonly OffsetCurveBuilder _offsetCurveBuilder = 
+            new OffsetCurveBuilder(new PrecisionModel(), new BufferParameters());
+
+        /// <summary>
+        /// Gets or set a value indicating the Pen used to draw the link axis
+        /// </summary>
+        public Pen AxisPen { get; set; }
+
+        /// <summary>
+        /// Gets or sets a pen used to draw a frame around each loadstrip
+        /// </summary>
+        public Pen FramePen { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating the scale factor to compute the width of the strip
+        /// </summary>
+        public double Scale { get; set; }
+
+        /// <summary>
+        /// A dictionary for load brushes
+        /// </summary>
+        public IDictionary<int, Brush> LoadBrush { get; set; }
+
+        /// <summary>
+        /// Creates an instance of this class
+        /// </summary>
+        public LinkWithLoadRenderer()
+        {
+            AxisPen = new Pen(Color.Black, 2);
+            FramePen = new Pen(Color.Gainsboro, 1);
+            Scale = 0.01;
+            LoadBrush = new Dictionary<int, Brush> { { 0, Brushes.Green }, { 1, Brushes.Gold }, { 2, Brushes.OrangeRed } };
+        }
 
         /// <summary>
         /// Method to render each individual business object
@@ -57,6 +89,7 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
             var start = ls.Coordinates;
             for (var i = 0; i < loads.Length; i++)
             {
+                // cycle if 
                 if (loads[i] == 0) continue;
                 
                 // Compute the offset line
@@ -79,26 +112,12 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
                     b = new HatchBrush(HatchStyle.LargeCheckerBoard, Color.HotPink, Color.Chartreuse);
 
                 Graphics.FillPolygon(b, gp);
-                Graphics.DrawPolygon(FramePen, gp);
+
+                if (FramePen != null)
+                    Graphics.DrawPolygon(FramePen, gp);
 
                 start = offset;
             }
-        }
-
-        public Pen AxisPen { get; set; }
-
-        public Pen FramePen { get; set; }
-
-        public double Scale { get; set; }
-
-        public IDictionary<int, Brush> LoadBrush { get; set; }
-
-        public LinkWithLoadRenderer()
-        {
-            AxisPen = new Pen(Color.Black, 2);
-            FramePen = new Pen(Color.Gainsboro, 1);
-            Scale = 0.01;
-            LoadBrush = new Dictionary<int, Brush>{{0, Brushes.Green}, {1, Brushes.Gold}, {2, Brushes.OrangeRed}};
         }
     }
 
@@ -116,7 +135,7 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
                 new LinkWithLoad
                 {
                     LineString = f.CreateLineString(new []{ new Coordinate(0, 0), new Coordinate(100, 400), new Coordinate(500, 500) }),
-                    Load = new []{ new [] { 500d, 200, 700, 30 }, new [] { 500d, 200, 30, 700 }}
+                    Load = new []{ new [] { 500d, 200, 700, 30 }, new [] { 300, 400d, 30, 700 }}
                 },
 
                 new LinkWithLoad
@@ -141,7 +160,9 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
 
             m.ZoomToExtents();
             m.Zoom *= 1.15;
-            m.GetMap().Save("LinkWithLoadImage.png", ImageFormat.Png);
+            m.GetMap().Save("LinkWithLoadImage1.png", ImageFormat.Png);
+            l.Renderer = null;
+            m.GetMap().Save("LinkWithLoadImage2.png", ImageFormat.Png);
         }
     }
 }
