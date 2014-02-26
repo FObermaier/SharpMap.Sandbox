@@ -1,26 +1,43 @@
 ﻿using System;
 using System.Drawing;
 using System.Runtime.Serialization;
+using Common.Logging;
 using GeoAPI.Geometries;
 using SharpMap.Data;
 using SharpMap.Data.Providers;
 using SharpMap.Data.Providers.Business;
 using SharpMap.Rendering.Business;
+using SharpMap.Rendering.Thematics;
+using SharpMap.Styles;
 
 namespace SharpMap.Layers
 {
     [Serializable]
-    public class BusinessObjectLayer <T> : Layer, ICanQueryLayer
+    public class BusinessObjectLayer<T> : Layer, ICanQueryLayer
     {
+        protected static ILog Logger = LogManager.GetLogger<Layer>();
+        
         private IBusinessObjectSource<T> _source;
         private IBusinessObjectRenderer<T> _businessObjectRenderer;
+
         [NonSerialized]
         private IProvider _provider;
+
+        private ITheme _theme;
 
         /// <summary>
         /// Creates an instance of this class
         /// </summary>
         public BusinessObjectLayer() 
+        {
+        }
+
+        /// <summary>
+        /// Creates an instance of this class assigning the given business object renderer
+        /// </summary>
+        /// <param name="source">The source for the business objects</param>
+        public BusinessObjectLayer(IBusinessObjectSource<T> source)
+            :this(source, null)
         {
         }
 
@@ -63,6 +80,8 @@ namespace SharpMap.Layers
         /// <param name="e">The event's arguments</param>
         protected virtual void OnSourceChanged(EventArgs e)
         {
+            Logger.Info( fmh => fmh("Source changed: {0}", _source != null ? _source.Title : "null") );
+
             if (SourceChanged != null)
                 SourceChanged(this, e);
         }
@@ -93,6 +112,8 @@ namespace SharpMap.Layers
         /// <param name="e">The event's arguments</param>
         protected virtual void OnRendererChanged(EventArgs e)
         {
+            Logger.Info(fmh => fmh("Renderer changed: {0}", _businessObjectRenderer != null ? _businessObjectRenderer.GetType().Name : "null"));
+
             if (RendererChanged != null)
                 RendererChanged(this, e);
         }
@@ -127,15 +148,60 @@ namespace SharpMap.Layers
         {
             if (_businessObjectRenderer != null)
             {
+                Logger.Info(fmh => fmh("Rendering using {0}", _businessObjectRenderer.GetType().Name));
+
                 _businessObjectRenderer.StartRendering(g, map);
                 foreach (var bo in _source.Select(map.Envelope))
                 {
                     _businessObjectRenderer.Render(bo);
                 }
-                _businessObjectRenderer.StartRendering(g, map);
+                _businessObjectRenderer.EndRendering(g, map);
+
+            }
+            else
+            {
+                Logger.Info(fmh => fmh("Rendering using VectorLayer approach"));
+
+                using (var vl = new VectorLayer(LayerName, Provider))
+                {
+                    if (!(Style is VectorStyle))
+                    {
+                        Logger.Info(fmh => fmh("The assigned style is not a VectorStyle. Creating a random VectorStyle"));
+
+                        var s = VectorStyle.CreateRandomStyle();
+                        s.Enabled = Enabled;
+                        s.MinVisible = MinVisible;
+                        s.MaxVisible = MaxVisible;
+
+                        Style = s;
+                    }
+
+                    vl.Style = ((VectorStyle) Style).Clone();
+                    vl.Theme = Theme;
+                    vl.Render(g, map);
+                }
             }
 
             base.Render(g, map);
+        }
+
+        /// <summary>
+        /// Gets or sets a theme
+        /// </summary>
+        public ITheme Theme
+        {
+            get { return _theme; }
+            set
+            {
+                if (value == _theme)
+                    return;
+
+                if (_businessObjectRenderer != null && value != null)
+                {
+                    Logger.Info(fmh => fmh("The assigned theme will not come to action as this layer has a business object renderer assigned!"));
+                }
+                _theme = value;
+            }
         }
 
         /// <summary>
@@ -179,7 +245,7 @@ namespace SharpMap.Layers
         public bool IsQueryEnabled { get; set; }
 
         /// <summary>
-        /// Method to set <see cref="_provider"/> after deserialization
+        /// Method to set <see cref="Provider"/> after deserialization
         /// </summary>
         [OnDeserialized]
         private void OnDeserialized(StreamingContext context)

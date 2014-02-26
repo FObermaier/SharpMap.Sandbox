@@ -12,6 +12,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMap.Business", "SharpM
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpMap.Data.Providers.Business.Tests", "SharpMap.Data.Providers.Business.Tests\SharpMap.Data.Providers.Business.Tests.csproj", "{6BB66868-62EA-49C7-A6F4-06B87E2BDE6D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VENUS.Model", "VENUS.Model\VENUS.Model.csproj", "{C3AD13E7-C4AC-442A-8DC1-28426F048D8E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,6 +28,10 @@ Global
 		{6BB66868-62EA-49C7-A6F4-06B87E2BDE6D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6BB66868-62EA-49C7-A6F4-06B87E2BDE6D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6BB66868-62EA-49C7-A6F4-06B87E2BDE6D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3AD13E7-C4AC-442A-8DC1-28426F048D8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3AD13E7-C4AC-442A-8DC1-28426F048D8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3AD13E7-C4AC-442A-8DC1-28426F048D8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3AD13E7-C4AC-442A-8DC1-28426F048D8E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
