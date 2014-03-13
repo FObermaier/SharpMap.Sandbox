@@ -16,6 +16,7 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
 
 using System.Collections.Generic;
+using System.Linq;
 using GeoAPI.Geometries;
 
 namespace SharpMap.Data.Providers.Business
@@ -44,6 +45,13 @@ namespace SharpMap.Data.Providers.Business
         /// <param name="geom">A geometry</param>
         /// <returns></returns>
         IEnumerable<T> Select(IGeometry geom);
+
+        /// <summary>
+        /// Select a set of features based on <paramref name="query"/>
+        /// </summary>
+        /// <param name="query">A query</param>
+        /// <returns></returns>
+        IEnumerable<T> Select(IQueryable<T> query);
 
         /// <summary>
         /// Select a business object by its id

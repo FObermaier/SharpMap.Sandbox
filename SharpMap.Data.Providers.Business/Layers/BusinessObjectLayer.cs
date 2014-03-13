@@ -1,7 +1,26 @@
-﻿using System;
+﻿// Copyright 2014 - Felix Obermaier (www.ivv-aachen.de)
+//
+// This file is part of SharpMap.Business.
+// SharpMap.Business is free software; you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+// 
+// SharpMap.Business is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with SharpMap; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
+
+using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Runtime.Serialization;
 using Common.Logging;
+using GeoAPI.CoordinateSystems.Transformations;
 using GeoAPI.Geometries;
 using SharpMap.Data;
 using SharpMap.Data.Providers;
@@ -19,6 +38,7 @@ namespace SharpMap.Layers
         
         private IBusinessObjectSource<T> _source;
         private IBusinessObjectRenderer<T> _businessObjectRenderer;
+        private IGeometryFactory _targetFactory;
 
         [NonSerialized]
         private IProvider _provider;
@@ -118,6 +138,26 @@ namespace SharpMap.Layers
                 RendererChanged(this, e);
         }
 
+        public override ICoordinateTransformation CoordinateTransformation
+        {
+            get
+            {
+                return base.CoordinateTransformation;
+            }
+            set
+            {
+                if (value == CoordinateTransformation)
+                    return;
+
+                if (value == null)
+                    _targetFactory = null;
+                else
+                    GeoAPI.GeometryServiceProvider.Instance.CreateGeometryFactory(Convert.ToInt32(value.TargetCS.AuthorityCode));
+
+                base.CoordinateTransformation = value;
+            }
+        }
+
         /// <summary>
         /// Gets a provider 
         /// </summary>
@@ -150,12 +190,28 @@ namespace SharpMap.Layers
             {
                 Logger.Info(fmh => fmh("Rendering using {0}", _businessObjectRenderer.GetType().Name));
 
+                // Get smoothing mode
+                var sm = g.SmoothingMode;
+                g.SmoothingMode = SmoothingMode.HighQuality;
+
+                // Set up renderer
                 _businessObjectRenderer.StartRendering(g, map);
-                foreach (var bo in _source.Select(map.Envelope))
+                _businessObjectRenderer.Transformation = (bog) => ToTarget(bog);
+
+                // Get query envelope
+                var env = ToSource(map.Envelope);
+
+                // Render all objects
+                foreach (var bo in _source.Select(env))
                 {
                     _businessObjectRenderer.Render(bo);
                 }
+
+                // Finish rendering
                 _businessObjectRenderer.EndRendering(g, map);
+
+                // reset smoothing mode
+                g.SmoothingMode = sm;
 
             }
             else
@@ -178,6 +234,9 @@ namespace SharpMap.Layers
 
                     vl.Style = ((VectorStyle) Style).Clone();
                     vl.Theme = Theme;
+                    vl.CoordinateTransformation = CoordinateTransformation;
+                    vl.ReverseCoordinateTransformation = ReverseCoordinateTransformation;
+
                     vl.Render(g, map);
                 }
             }
@@ -244,6 +303,55 @@ namespace SharpMap.Layers
         /// </summary>
         public bool IsQueryEnabled { get; set; }
 
+#if !SharpMap_v1_2
+        protected Envelope ToTarget(Envelope envelope)
+        {
+            if (CoordinateTransformation == null)
+                return envelope;
+#if !DotSpatialProjections
+            return GeometryTransform.TransformBox(envelope, CoordinateTransformation.MathTransform);
+#else
+            return GeometryTransform.TransformBox(box, CoordinateTransformation.Source, CoordinateTransformation.Target);
+#endif
+        }
+
+        protected IGeometry ToTarget(IGeometry geometry)
+        {
+            if (CoordinateTransformation == null)
+                return geometry;
+#if !DotSpatialProjections
+            return GeometryTransform.TransformGeometry(geometry, CoordinateTransformation.MathTransform, geometry.Factory);
+#else
+            return GeometryTransform.TransformGeometry(geometry, CoordinateTransformation.Source, CoordinateTransformation.Target, targetFactory);
+#endif
+        }
+
+        protected Envelope ToSource(Envelope envelope)
+        {
+            if (ReverseCoordinateTransformation == null)
+            {
+                if (CoordinateTransformation == null)
+                    return envelope;
+
+                var mt = CoordinateTransformation.MathTransform;
+#if !DotSpatialProjections
+                mt.Invert();
+                var res = GeometryTransform.TransformBox(envelope, mt);
+                mt.Invert();
+#else
+                return GeometryTransform.TransformBox(envelope, CoordinateTransformation.Target, CoordinateTransformation.Source);
+#endif
+                return res;
+            }
+
+#if !DotSpatialProjections
+            return GeometryTransform.TransformBox(envelope, ReverseCoordinateTransformation.MathTransform);
+#else
+            return GeometryTransform.TransformBox(box, ReverseCoordinateTransformation.Source, ReverseCoordinateTransformation.Target);
+#endif
+        }
+#endif
+        
         /// <summary>
         /// Method to set <see cref="Provider"/> after deserialization
         /// </summary>

@@ -57,6 +57,16 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
         public IDictionary<int, Brush> LoadBrush { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the line should be simplified
+        /// </summary>
+        public bool Simplify { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating the load strip offset from the axis
+        /// </summary>
+        public double Offset { get; set; }
+
+        /// <summary>
         /// Creates an instance of this class
         /// </summary>
         public LinkWithLoadRenderer()
@@ -73,11 +83,13 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
         /// <param name="businessObject">The business object to render</param>
         public override void Render(LinkWithLoad businessObject)
         {
+            var g = (ILineString)Transformation(businessObject.LineString);
+
             // Draw the loads in positive direction
-            RenderLoadStrips(businessObject.LineString, businessObject.Load[0], Scale);
+            RenderLoadStrips(g, businessObject.Load[0], Scale);
 
             // Draw the loads in negative direction
-            RenderLoadStrips(businessObject.LineString, businessObject.Load[1], -Scale);
+            RenderLoadStrips(g, businessObject.Load[1], -Scale);
 
             // Draw the axis
             if (AxisPen != null)
@@ -86,7 +98,16 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
 
         private void RenderLoadStrips(ILineString ls, double[] loads, double scale = 1)
         {
-            var start = ls.Coordinates;
+            // Get the coordinates
+            var start = Simplify 
+                ? NetTopologySuite.Simplify.DouglasPeuckerLineSimplifier.Simplify(ls.Coordinates, 2*Map.PixelSize)
+                : ls.Coordinates;
+
+            // Compute the initial offset
+            if (Offset != 0d)
+                start = _offsetCurveBuilder.GetOffsetCurve(start, Math.Sign(scale)*Offset * Map.PixelSize);
+
+            // All strips
             for (var i = 0; i < loads.Length; i++)
             {
                 // cycle if 
@@ -134,7 +155,7 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
             {
                 new LinkWithLoad
                 {
-                    LineString = f.CreateLineString(new []{ new Coordinate(0, 0), new Coordinate(100, 400), new Coordinate(500, 500) }),
+                    LineString = f.CreateLineString(new []{ new Coordinate(0, 0), new Coordinate(100, 400), new Coordinate(250, 400), new Coordinate(500, 500) }),
                     Load = new []{ new [] { 500d, 200, 700, 30 }, new [] { 300, 400d, 30, 700 }}
                 },
 
@@ -153,7 +174,7 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
             s.Insert(_linksWithLoads);
 
             var l = new BusinessObjectLayer<LinkWithLoad>(s);
-            l.Renderer = new LinkWithLoadRenderer{ Scale = 0.05 };
+            l.Renderer = new LinkWithLoadRenderer{ Scale = 0.05, Offset = 1.5 };
 
             var m = new Map(new Size(500, 300));
             m.Layers.Add(l);

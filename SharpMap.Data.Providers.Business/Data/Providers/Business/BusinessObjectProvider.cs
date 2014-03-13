@@ -1,7 +1,25 @@
-﻿using System;
+﻿// Copyright 2014 - Felix Obermaier (www.ivv-aachen.de)
+//
+// This file is part of SharpMap.Business.
+// SharpMap.Business is free software; you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+// 
+// SharpMap.Business is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with SharpMap; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
+using System.Linq;
 using System.Linq.Expressions;
 using GeoAPI.Geometries;
 
@@ -81,30 +99,40 @@ namespace SharpMap.Data.Providers.Business
 
         static IEnumerable<Tuple<string, BusinessObjectAttributeAttribute>> GetPublicMembers(Type t)
         {
+            var dict = new Dictionary<string, BusinessObjectAttributeAttribute>();
+
+            GetPublicMembers(t, dict);
+
             var list = new List<Tuple<string, BusinessObjectAttributeAttribute>>();
-
-            GetPublicMembers(t, list);
+            foreach (var kvp in dict)
+                list.Add(Tuple.Create(kvp.Key, kvp.Value));
             list.Sort((a, b) => a.Item2.Ordinal.CompareTo(b.Item2.Ordinal));
-
+            
             return list;
         }
 
         static void GetPublicMembers(Type t,
-            List<Tuple<string, BusinessObjectAttributeAttribute>> collection)
+            Dictionary<string, BusinessObjectAttributeAttribute> collection)
         {
             var pis = t.GetProperties(/*BindingFlags.Public | BindingFlags.Instance*/);
             foreach (var pi in pis)
             {
                 var att = pi.GetCustomAttributes(typeof (BusinessObjectAttributeAttribute), true);
                 if (att.Length > 0)
-                    collection.Add(Tuple.Create(pi.Name, (BusinessObjectAttributeAttribute)att[0]));
+                {
+                    if (!collection.ContainsKey(pi.Name))
+                        collection.Add(pi.Name, (BusinessObjectAttributeAttribute)att[0]);
+                }
             }
             var fis = t.GetFields(/*BindingFlags.Public | BindingFlags.Instance*/);
             foreach (var fi in fis)
             {
                 var att = fi.GetCustomAttributes(typeof(BusinessObjectAttributeAttribute), true);
                 if (att.Length > 0)
-                    collection.Add(Tuple.Create(fi.Name, (BusinessObjectAttributeAttribute)att[0]));
+                {
+                    if (!collection.ContainsKey(fi.Name))
+                        collection.Add(fi.Name, (BusinessObjectAttributeAttribute)att[0]);
+                }
             }
             if (t.BaseType != typeof (object))
                 GetPublicMembers(t.BaseType, collection);
@@ -187,6 +215,19 @@ namespace SharpMap.Data.Providers.Business
             var resTable = (FeatureDataTable)SchemaTable.Copy();
             resTable.BeginLoadData();
             foreach (var feature in _source.Select(box))
+            {
+                var fdr = (FeatureDataRow)resTable.LoadDataRow(ToItemArray(feature), LoadOption.OverwriteChanges);
+                fdr.Geometry = _source.GetGeometry(feature);
+            }
+            resTable.EndLoadData();
+            ds.Tables.Add(resTable);
+        }
+
+        public void ExecuteQueryable(IQueryable<TFeature> query, FeatureDataSet ds)
+        {
+            var resTable = (FeatureDataTable)SchemaTable.Copy();
+            resTable.BeginLoadData();
+            foreach (var feature in _source.Select(query))
             {
                 var fdr = (FeatureDataRow)resTable.LoadDataRow(ToItemArray(feature), LoadOption.OverwriteChanges);
                 fdr.Geometry = _source.GetGeometry(feature);

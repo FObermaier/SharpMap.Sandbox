@@ -18,6 +18,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using GeoAPI.Geometries;
 
 namespace SharpMap.Rendering.Business
 {
@@ -75,5 +76,10 @@ namespace SharpMap.Rendering.Business
             _image.Dispose();
             _image = null;
         }
+
+        /// <summary>
+        /// Gets or sets a value indicating the math transformation that is to be applied on the geometry prior to rendering
+        /// </summary>
+        public Func<IGeometry, IGeometry> Transformation { get; set; }
     }
 }
