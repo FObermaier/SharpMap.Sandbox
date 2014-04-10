@@ -130,6 +130,9 @@
     <Compile Include="Memory\InMemoryTests.cs" />
     <Compile Include="Memory\LinkLoad.cs" />
     <Compile Include="Memory\PointOfInterest.cs" />
+    <Compile Include="MongoDB\BsonGeometrySerializer.cs" />
+    <Compile Include="MongoDB\MongoDBBusinessObjectRepository.cs" />
+    <Compile Include="MongoDB\MongoDbTests.cs" />
     <Compile Include="MongoDB\PoI.cs" />
     <Compile Include="NHibernating\BusinessObjectRepository.cs" />
     <Compile Include="NHibernating\Country.cs" />

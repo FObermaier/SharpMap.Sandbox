@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Entity;
 using System.Data.Entity.Spatial;
 using System.Linq;
+using Common.Logging;
 using GeoAPI.Geometries;
 using NUnit.Framework;
 using SharpMap.Data;
@@ -58,6 +59,9 @@ namespace SharpMap.Test
         {
             using (var context = new UniversityContext())
             {
+                var connectionString = context.Database.Connection.ConnectionString;
+                LogManager.GetCurrentClassLogger().Debug(fmh => fmh("Connected with: {0}", connectionString));
+
                 //Delete old entries
                 var entries = context.Universities.AsEnumerable();
                 context.Universities.RemoveRange(entries);

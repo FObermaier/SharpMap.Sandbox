@@ -74,7 +74,7 @@ namespace SharpMap.Data.Providers.Business
     /// Quick and dirty implementation of an in-memory business object store
     /// </summary>
     /// <typeparam name="T">The type of the business object</typeparam>
-    internal class InMemoryBusinessObjectAccess<T> : BusinessObjectAccessBase<T>
+    public class InMemoryBusinessObjectAccess<T> : BusinessObjectAccessBase<T>
     {
         private readonly Dictionary<uint, T> _businessObjects;
 

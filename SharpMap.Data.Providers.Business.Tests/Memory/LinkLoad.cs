@@ -5,7 +5,9 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Linq;
 using GeoAPI.Geometries;
+using NetTopologySuite.Algorithm;
 using NetTopologySuite.Geometries;
+using NetTopologySuite.GeometriesGraph.Index;
 using NetTopologySuite.Operation.Buffer;
 using NUnit.Framework;
 using SharpMap.Layers;
@@ -105,7 +107,8 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
 
             // Compute the initial offset
             if (Offset != 0d)
-                start = _offsetCurveBuilder.GetOffsetCurve(start, Math.Sign(scale)*Offset * Map.PixelSize);
+                start = RemoveSelfIntersections(_offsetCurveBuilder
+                    .GetOffsetCurve(start, Math.Sign(scale)*Offset * Map.PixelSize), ls.Factory);
 
             // All strips
             for (var i = 0; i < loads.Length; i++)
@@ -114,7 +117,8 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
                 if (loads[i] == 0) continue;
                 
                 // Compute the offset line
-                var offset = _offsetCurveBuilder.GetOffsetCurve(start, scale * loads[i]);
+                var offset = RemoveSelfIntersections(_offsetCurveBuilder
+                    .GetOffsetCurve(start, scale * loads[i]), ls.Factory);
 
                 // Setup coordinate sequence
                 var pts = new List<Coordinate>(start);
@@ -140,6 +144,30 @@ namespace SharpMap.Data.Providers.Business.Tests.Memory
                 start = offset;
             }
         }
+
+        //private ILineString GetOffsetCurve(ILineString lineString)
+        //{
+        //    return lineString.Factory.CreateLineString(
+        //        _offsetCurveBuilder.GetOffsetCurve())
+        //}
+
+        private static Coordinate[] RemoveSelfIntersections(Coordinate[] offsetCurve, IGeometryFactory factory)
+        {
+            var ls = factory.CreateLineString(offsetCurve);
+            if (ls.IsValid)
+                return offsetCurve;
+
+            var polygonizer = new NetTopologySuite.Operation.Polygonize.Polygonizer();
+            polygonizer.Add(ls);
+            var dangles = polygonizer.GetDangles();
+            var sequencer = new NetTopologySuite.Operation.Linemerge.LineSequencer();
+            sequencer.Add(dangles);
+            System.Diagnostics.Debug.Assert(sequencer.IsSequenceable());
+            return sequencer.GetSequencedLineStrings().Coordinates;
+
+        }
+
+
     }
 
     public class BusinessObjectLayerTest
