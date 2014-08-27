@@ -27,6 +27,7 @@ namespace SharpMap.Data.Providers.Business.Tests.MongoDB
         {
             return Query<PoI>.GeoIntersects(t => t.BsonGeometry, Converter.ToPolygon(box));        }
     }
+
     public class PoI//<T> where T : GeoJsonCoordinates
     {
         private IGeometry _geometry;

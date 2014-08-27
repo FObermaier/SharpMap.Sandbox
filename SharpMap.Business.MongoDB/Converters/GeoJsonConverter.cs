@@ -1,14 +1,27 @@
-﻿using System;
+﻿// Copyright 2013-2014 Felix Obermaier (www.ivv-aachen.de)
+//
+// This file is part of SharpMap.Business.MongoDB.
+// SharpMap.Business.MongoDB is free software; you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+// 
+// SharpMap.Business.MongoDB is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with SharpMap; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using BruTile.Wmts.Generated;
 using GeoAPI;
 using GeoAPI.Geometries;
-using MongoDB.Driver;
 using MongoDB.Driver.GeoJsonObjectModel;
-using NetTopologySuite.Algorithm.Locate;
-using NetTopologySuite.Geometries;
 
 namespace SharpMap.Converters
 {
@@ -107,11 +120,6 @@ namespace SharpMap.Converters
         
     }
 
-    public class GeoJsonConveterUtility<T>
-    {
-        
-    }
-
     public class GeoJsonConverter<T>
         where T:GeoJsonCoordinates
     {
@@ -140,11 +148,24 @@ namespace SharpMap.Converters
         /// <param name="fromHandler">The handler to convert the coordinates</param>
         /// <param name="toHandler">The handler to convert the coordinates</param>
         public GeoJsonConverter(FromCoordinateHandler fromHandler, ToCoordinateHandler toHandler)
+            :this(fromHandler, toHandler, GeometryServiceProvider.Instance.CreateGeometryFactory(0), null)
+        {
+        }
+
+        /// <summary>
+        /// Creates an instance of this class
+        /// </summary>
+        /// <param name="fromHandler">The handler to convert the coordinates</param>
+        /// <param name="toHandler">The handler to convert the coordinates</param>
+        /// <param name="factory">The geometry factory to use</param>
+        /// <param name="crs">The coordinate reference system to assign or verify</param>
+        public GeoJsonConverter(FromCoordinateHandler fromHandler, ToCoordinateHandler toHandler, 
+            IGeometryFactory factory, GeoJsonCoordinateReferenceSystem crs)
         {
             _fromHandler = fromHandler;
             _toHandler = toHandler;
-            _factory = GeoAPI.GeometryServiceProvider.Instance.CreateGeometryFactory(4326);
-            //_crs = new GeoJsonNamedCoordinateReferenceSystem("EPSG:4326");
+            _factory = factory;
+            _crs = crs;
         }
 
         private void CheckInput(IGeometry geometry, OgcGeometryType type)
@@ -167,91 +188,53 @@ namespace SharpMap.Converters
                 throw new ArgumentException("Wrong CoordinateReferenceSystem", "geometry");
         }
 
+        private GeoJsonObjectArgs<T> CreateObjectArgs(Envelope env)
+        {
+            return new GeoJsonObjectArgs<T>
+            {
+                CoordinateReferenceSystem = _crs,
+                BoundingBox = ToBoundingBox(env)
+            };
+        }
+
+        #region To GeoJson
         public GeoJsonPoint<T> ToPoint(IGeometry geometry)
         {
             CheckInput(geometry, OgcGeometryType.Point);
             var coord = geometry.Coordinate;
-            return new GeoJsonPoint<T>(_fromHandler(coord));
-        }
-
-        public IPoint ToPoint(GeoJsonPoint<T> point)
-        {
-            CheckInput(point, GeoJsonObjectType.Point);
-            return _factory.CreatePoint(_toHandler(point.Coordinates));
-        }
-
-        private IEnumerable<T> ToPositions(ICoordinateSequence sequence)
-        {
-            var res = new List<T>(sequence.Count);
-            for (var i = 0; i < sequence.Count; i++)
-                res.Add(_fromHandler(sequence.GetCoordinate(i)));
-            return res;
+            return new GeoJsonPoint<T>(CreateObjectArgs(geometry.EnvelopeInternal), _fromHandler(coord));
         }
 
         private GeoJsonLineString<T> ToLineString(IGeometry geometry)
         {
             CheckInput(geometry, OgcGeometryType.LineString);
-            var linestring = (ILineString) geometry;
+            var linestring = (ILineString)geometry;
             var list = new GeoJsonLineStringCoordinates<T>(ToPositions(linestring.CoordinateSequence));
-            return new GeoJsonLineString<T>(list);
-        }
-
-
-        private GeoJsonLinearRingCoordinates<T> ToLinearRing(ICoordinateSequence sequence)
-        {
-            if (sequence == null)
-                throw new ArgumentNullException();
-
-            return new GeoJsonLinearRingCoordinates<T>(ToPositions(sequence));
+            return new GeoJsonLineString<T>(CreateObjectArgs(geometry.EnvelopeInternal), list);
         }
 
         public GeoJsonPolygon<T> ToPolygon(IGeometry geometry)
         {
             CheckInput(geometry, OgcGeometryType.Polygon);
-            var polygon = (IPolygon) geometry;
-            return new GeoJsonPolygon<T>(ToPolygonCoordinates(polygon));
+            var polygon = (IPolygon)geometry;
+            return new GeoJsonPolygon<T>(CreateObjectArgs(geometry.EnvelopeInternal), ToPolygonCoordinates(polygon));
         }
 
-        private GeoJsonPolygonCoordinates<T> ToPolygonCoordinates(IPolygon polygon)
-        {
-            var shell = ToLinearRing(polygon.Shell.CoordinateSequence);
-            var holes = new List<GeoJsonLinearRingCoordinates<T>>(polygon.NumInteriorRings);
-            for (var i = 0; i < polygon.NumInteriorRings; i++)
-            {
-                var ring = polygon.GetInteriorRingN(i);
-                holes.Add(ToLinearRing(ring.CoordinateSequence));
-            }
-
-            return new GeoJsonPolygonCoordinates<T>(shell, holes);
-        }
         public GeoJsonMultiPoint<T> ToMultiPoint(IGeometry geometry)
         {
             CheckInput(geometry, OgcGeometryType.MultiPoint);
-            var multiPoint = (IMultiPoint) geometry;
-            
-            return new GeoJsonMultiPoint<T>(new GeoJsonMultiPointCoordinates<T>(ToPositions(multiPoint.Coordinates)));
-        }
+            var multiPoint = (IMultiPoint)geometry;
 
-        private IEnumerable<T> ToPositions(IEnumerable<Coordinate> coordinates)
-        {
-            return coordinates.Select(coordinate => _fromHandler(coordinate));
+            return new GeoJsonMultiPoint<T>(CreateObjectArgs(geometry.EnvelopeInternal),
+                new GeoJsonMultiPointCoordinates<T>(ToPositions(multiPoint.Coordinates)));
         }
 
         public GeoJsonMultiLineString<T> ToMultiLineString(IGeometry geometry)
         {
             CheckInput(geometry, OgcGeometryType.LineString);
             var mlp = new GeoJsonMultiLineStringCoordinates<T>(
-                ToLineStringCoordinates((IMultiLineString) geometry));
-            return new GeoJsonMultiLineString<T>(mlp);
-        }
-
-        private IEnumerable<GeoJsonLineStringCoordinates<T>> ToLineStringCoordinates(IMultiLineString geometry)
-        {
-            for (var i = 0; i < geometry.NumGeometries; i++)
-            {
-                var ls = (ILineString) geometry.GetGeometryN(i);
-                yield return new GeoJsonLineStringCoordinates<T>(ToPositions(ls.CoordinateSequence));
-            }
+                ToLineStringCoordinates((IMultiLineString)geometry));
+            return new GeoJsonMultiLineString<T>(CreateObjectArgs(geometry.EnvelopeInternal), mlp);
         }
 
         public GeoJsonMultiPolygon<T> ToMultiPolygon(IGeometry geometry)
@@ -261,10 +244,11 @@ namespace SharpMap.Converters
             var pcl = new List<GeoJsonPolygonCoordinates<T>>(geometry.NumGeometries);
             for (var i = 0; i < geometry.NumGeometries; i++)
             {
-                var p = (IPolygon) geometry.GetGeometryN(i);
+                var p = (IPolygon)geometry.GetGeometryN(i);
                 pcl.Add(ToPolygonCoordinates(p));
             }
-            return new GeoJsonMultiPolygon<T>(new GeoJsonMultiPolygonCoordinates<T>(pcl));
+            return new GeoJsonMultiPolygon<T>(CreateObjectArgs(geometry.EnvelopeInternal),
+                new GeoJsonMultiPolygonCoordinates<T>(pcl));
         }
 
         public GeoJsonGeometryCollection<T> ToGeometryCollection(IGeometry geometry)
@@ -274,7 +258,7 @@ namespace SharpMap.Converters
             var list = new List<GeoJsonGeometry<T>>();
             for (var i = 0; i < geometry.NumGeometries; i++)
                 list.Add(ToGeometry(geometry.GetGeometryN(i)));
-            return new GeoJsonGeometryCollection<T>(list);
+            return new GeoJsonGeometryCollection<T>(CreateObjectArgs(geometry.EnvelopeInternal), list);
         }
 
         public GeoJsonGeometry<T> ToGeometry(IGeometry geometry)
@@ -300,6 +284,54 @@ namespace SharpMap.Converters
             }
         }
 
+        #region GeoJsonCoordinates utilities
+        private IEnumerable<T> ToPositions(ICoordinateSequence sequence)
+        {
+            var res = new List<T>(sequence.Count);
+            for (var i = 0; i < sequence.Count; i++)
+                res.Add(_fromHandler(sequence.GetCoordinate(i)));
+            return res;
+        }
+
+        private GeoJsonLinearRingCoordinates<T> ToLinearRing(ICoordinateSequence sequence)
+        {
+            if (sequence == null)
+                throw new ArgumentNullException();
+
+            return new GeoJsonLinearRingCoordinates<T>(ToPositions(sequence));
+        }
+
+        private GeoJsonPolygonCoordinates<T> ToPolygonCoordinates(IPolygon polygon)
+        {
+            var shell = ToLinearRing(polygon.Shell.CoordinateSequence);
+            var holes = new List<GeoJsonLinearRingCoordinates<T>>(polygon.NumInteriorRings);
+            for (var i = 0; i < polygon.NumInteriorRings; i++)
+            {
+                var ring = polygon.GetInteriorRingN(i);
+                holes.Add(ToLinearRing(ring.CoordinateSequence));
+            }
+
+            return new GeoJsonPolygonCoordinates<T>(shell, holes);
+        }
+
+        private IEnumerable<T> ToPositions(IEnumerable<Coordinate> coordinates)
+        {
+            return coordinates.Select(coordinate => _fromHandler(coordinate));
+        }
+
+        private IEnumerable<GeoJsonLineStringCoordinates<T>> ToLineStringCoordinates(IMultiLineString geometry)
+        {
+            for (var i = 0; i < geometry.NumGeometries; i++)
+            {
+                var ls = (ILineString) geometry.GetGeometryN(i);
+                yield return new GeoJsonLineStringCoordinates<T>(ToPositions(ls.CoordinateSequence));
+            }
+        }
+        #endregion
+        #endregion
+
+        #region Envelope/BoundingBox
+
         public Envelope ToBoundingBox(GeoJsonBoundingBox<T> box)
         {
             return new Envelope(_toHandler(box.Min), _toHandler(box.Max));
@@ -311,6 +343,15 @@ namespace SharpMap.Converters
             var max = _fromHandler(new Coordinate(box.MaxX, box.MaxY));
             return new GeoJsonBoundingBox<T>(min, max);
         }
+
+        public GeoJsonGeometry<T> ToPolygon(Envelope geometry)
+        {
+            return ToPolygon(_factory.ToGeometry(geometry));
+        }
+
+        #endregion
+
+        #region To GeoAPI.Geometries
 
         public IGeometry ToGeometry(GeoJsonGeometry<T> bsonGeometry)
         {
@@ -335,7 +376,7 @@ namespace SharpMap.Converters
             }
         }
 
-        private IGeometry ToGeometryCollection(GeoJsonGeometryCollection<T> bsonGeometry)
+        public IGeometry ToGeometryCollection(GeoJsonGeometryCollection<T> bsonGeometry)
         {
             CheckInput(bsonGeometry, GeoJsonObjectType.GeometryCollection);
             var geometries = bsonGeometry.Geometries;
@@ -345,7 +386,7 @@ namespace SharpMap.Converters
             return GeometryServiceProvider.Instance.CreateGeometryFactory().CreateGeometryCollection(col);
         }
 
-        private IGeometry ToMultiPolygon(GeoJsonMultiPolygon<T> bsonGeometry)
+        public IGeometry ToMultiPolygon(GeoJsonMultiPolygon<T> bsonGeometry)
         {
             CheckInput(bsonGeometry, GeoJsonObjectType.MultiPolygon);
             var polygons = bsonGeometry.Coordinates.Polygons;
@@ -355,7 +396,7 @@ namespace SharpMap.Converters
             return _factory.CreateMultiPolygon(polys);
         }
 
-        private IGeometry ToMultiLineString(GeoJsonMultiLineString<T> bsonGeometry)
+        public IGeometry ToMultiLineString(GeoJsonMultiLineString<T> bsonGeometry)
         {
             CheckInput(bsonGeometry, GeoJsonObjectType.MultiLineString);
             var linestrings = bsonGeometry.Coordinates.LineStrings;
@@ -365,17 +406,29 @@ namespace SharpMap.Converters
             return _factory.CreateMultiLineString(lines);
         }
 
-        private IGeometry ToMultiPoint(GeoJsonMultiPoint<T> bsonGeometry)
+        public IGeometry ToMultiPoint(GeoJsonMultiPoint<T> bsonGeometry)
         {
             CheckInput(bsonGeometry, GeoJsonObjectType.MultiPoint);
             var coords = ToCoordinateArray(bsonGeometry.Coordinates.Positions);
             return _factory.CreateMultiPoint(coords);
         }
 
-        private IGeometry ToLineString(GeoJsonLineString<T> bsonGeometry)
+        public IGeometry ToPoint(GeoJsonPoint<T> point)
+        {
+            CheckInput(point, GeoJsonObjectType.Point);
+            return _factory.CreatePoint(_toHandler(point.Coordinates));
+        }
+
+        public IGeometry ToLineString(GeoJsonLineString<T> bsonGeometry)
         {
             CheckInput(bsonGeometry, GeoJsonObjectType.LineString);
             return ToLineString(bsonGeometry.Coordinates);
+        }
+
+        internal IGeometry ToPolygon(GeoJsonPolygon<T> bsonGeometry)
+        {
+            CheckInput(bsonGeometry, GeoJsonObjectType.Polygon);
+            return ToPolygon(bsonGeometry.Coordinates);
         }
 
         private ILineString ToLineString(GeoJsonLineStringCoordinates<T> coordinates)
@@ -392,12 +445,6 @@ namespace SharpMap.Converters
             return res;
         }
 
-        private IGeometry ToPolygon(GeoJsonPolygon<T> bsonGeometry)
-        {
-            CheckInput(bsonGeometry, GeoJsonObjectType.Polygon);
-            return ToPolygon(bsonGeometry.Coordinates);
-        }
-
         private IPolygon ToPolygon(GeoJsonPolygonCoordinates<T> coordinates)
         {
             var shell = _factory.CreateLinearRing(ToCoordinateArray(coordinates.Exterior.Positions));
@@ -411,9 +458,6 @@ namespace SharpMap.Converters
             return _factory.CreatePolygon(shell);
         }
 
-        public GeoJsonGeometry<T> ToPolygon(Envelope geometry)
-        {
-            return ToPolygon(_factory.ToGeometry(geometry));
-        }
+        #endregion
     }
 }

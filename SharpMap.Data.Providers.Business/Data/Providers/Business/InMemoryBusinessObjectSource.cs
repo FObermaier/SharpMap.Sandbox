@@ -1,4 +1,4 @@
-﻿// Copyright 2014 -      Felix Obermaier (www.ivv-aachen.de)
+﻿// Copyright 2013 - 2014 Felix Obermaier (www.ivv-aachen.de)
 //
 // This file is part of SharpMap.Data.Providers.Business.
 // SharpMap.Data.Providers.Business is free software; you can redistribute it and/or modify
@@ -17,59 +17,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using GeoAPI.Geometries;
 using NetTopologySuite.Geometries;
 
 namespace SharpMap.Data.Providers.Business
 {
-    public abstract class BusinessObjectAccessBase<T> : IBusinessObjectSource<T>
-    {
-        protected static readonly TypeUtility<T>.MemberGetDelegate<uint> _getId;
-        protected static TypeUtility<T>.MemberGetDelegate<IGeometry> _getGeometry;
-
-        static BusinessObjectAccessBase()
-        {
-            _getId = TypeUtility<T>.GetMemberGetDelegate<uint>(typeof(BusinessObjectIdentifierAttribute));
-            _getGeometry = TypeUtility<T>.GetMemberGetDelegate<IGeometry>(typeof(BusinessObjectGeometryAttribute));
-        }
-
-        public virtual string Title { get; protected set; }
-        public abstract IEnumerable<T> Select(Envelope box);
-        public abstract IEnumerable<T> Select(IGeometry geom);
-
-        public virtual IEnumerable<T> Select(IQueryable<T> query)
-        {
-            return query.ToList();
-        }
-
-        public abstract T Select(uint id);
-        public abstract void Update(IEnumerable<T> businessObjects);
-        public abstract void Delete(IEnumerable<T> businessObjects);
-        public abstract void Insert(IEnumerable<T> businessObjects);
-
-        public IGeometry GetGeometry(T feature)
-        {
-            return _getGeometry(feature);
-        }
-
-        public uint GetId(T feature)
-        {
-            return _getId(feature);
-        }
-
-        public abstract int Count { get; }
-
-        protected Envelope CachedExtents { get; set; }
-
-        public virtual Envelope GetExtents()
-        {
-            if (CachedExtents == null)
-                throw new InvalidOperationException("You need to set Cached before using this function or override GetExtents");
-            return CachedExtents;
-        }
-    }
-
     /// <summary>
     /// Quick and dirty implementation of an in-memory business object store
     /// </summary>
