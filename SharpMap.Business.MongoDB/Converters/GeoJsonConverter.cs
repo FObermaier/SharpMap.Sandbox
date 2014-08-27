@@ -27,34 +27,37 @@ namespace SharpMap.Converters
 {
     public static class GeoJsonConverter
     {
+        public static GeoJsonCoordinateReferenceSystem DefaultCrs = new GeoJsonNamedCoordinateReferenceSystem("EPSG:4326");
+        public static int DefaultSRID = 4326;
+
         public static GeoJsonConverter<GeoJson2DCoordinates> Converter2D
         {
-            get { return new GeoJsonConverter<GeoJson2DCoordinates>(To2DCoordinates, From2DCoordinates); }
+            get { return new GeoJsonConverter<GeoJson2DCoordinates>(To2DCoordinates, From2DCoordinates, GeometryServiceProvider.Instance.CreateGeometryFactory(DefaultSRID), DefaultCrs); }
         }
 
         public static GeoJsonConverter<GeoJson2DProjectedCoordinates> Converter2DProjected
         {
-            get { return new GeoJsonConverter<GeoJson2DProjectedCoordinates>(To2DProjectedCoordinates, From2DProjectedCoordinates); }
+            get { return new GeoJsonConverter<GeoJson2DProjectedCoordinates>(To2DProjectedCoordinates, From2DProjectedCoordinates, GeometryServiceProvider.Instance.CreateGeometryFactory(DefaultSRID), DefaultCrs); }
         }
 
         public static GeoJsonConverter<GeoJson2DGeographicCoordinates> Converter2DGeographic
         {
-            get { return new GeoJsonConverter<GeoJson2DGeographicCoordinates>(To2DGeographicCoordinates, From2DGeographicCoordinates); }
+            get { return new GeoJsonConverter<GeoJson2DGeographicCoordinates>(To2DGeographicCoordinates, From2DGeographicCoordinates, GeometryServiceProvider.Instance.CreateGeometryFactory(DefaultSRID), DefaultCrs); }
         }
 
         public static GeoJsonConverter<GeoJson3DCoordinates> Converter3D
         {
-            get { return new GeoJsonConverter<GeoJson3DCoordinates>(To3DCoordinates, From3DCoordinates); }
+            get { return new GeoJsonConverter<GeoJson3DCoordinates>(To3DCoordinates, From3DCoordinates, GeometryServiceProvider.Instance.CreateGeometryFactory(DefaultSRID), DefaultCrs); }
         }
 
         public static GeoJsonConverter<GeoJson3DProjectedCoordinates> Converter3DProjected
         {
-            get { return new GeoJsonConverter<GeoJson3DProjectedCoordinates>(To3DProjectedCoordinates, From3DProjectedCoordinates); }
+            get { return new GeoJsonConverter<GeoJson3DProjectedCoordinates>(To3DProjectedCoordinates, From3DProjectedCoordinates, GeometryServiceProvider.Instance.CreateGeometryFactory(DefaultSRID), DefaultCrs); }
         }
 
         public static GeoJsonConverter<GeoJson3DGeographicCoordinates> Converter3DGeographic
         {
-            get { return new GeoJsonConverter<GeoJson3DGeographicCoordinates>(To3DGeographicCoordinates, From3DGeographicCoordinates); }
+            get { return new GeoJsonConverter<GeoJson3DGeographicCoordinates>(To3DGeographicCoordinates, From3DGeographicCoordinates, GeometryServiceProvider.Instance.CreateGeometryFactory(DefaultSRID), DefaultCrs); }
         }
 
         private static GeoJson2DCoordinates To2DCoordinates(Coordinate c)
@@ -184,8 +187,19 @@ namespace SharpMap.Converters
                 throw new ArgumentNullException("geometry");
             if (geometry.Type != type)
                 throw new ArgumentOutOfRangeException("geometry is not of desired type");
-            if (geometry.CoordinateReferenceSystem != _crs)
+
+            /* It seems that GeoJsonCoordinateReferenceSystem does not implement Equals properly,
+             * so we can't check its correctness this way!
+            if (_crs != null && geometry.CoordinateReferenceSystem == null)
+                throw new ArgumentException("Wrong CoordinateReferenceSystem, none assigned to geometry", "geometry");
+            if (_crs == null && geometry.CoordinateReferenceSystem != null)
+                throw new ArgumentException("Wrong CoordinateReferenceSystem, assigned to geometry but should be null", "geometry");
+            if (_crs == null || geometry.CoordinateReferenceSystem == null)
+                return;
+
+            if (geometry.CoordinateReferenceSystem != _crs && !geometry.CoordinateReferenceSystem.Equals(_crs))
                 throw new ArgumentException("Wrong CoordinateReferenceSystem", "geometry");
+             */
         }
 
         private GeoJsonObjectArgs<T> CreateObjectArgs(Envelope env)
@@ -346,7 +360,15 @@ namespace SharpMap.Converters
 
         public GeoJsonGeometry<T> ToPolygon(Envelope geometry)
         {
-            return ToPolygon(_factory.ToGeometry(geometry));
+            var coordinates = new[]
+            {
+                new Coordinate(geometry.MinX, geometry.MinY),
+                new Coordinate(geometry.MaxX, geometry.MinY),
+                new Coordinate(geometry.MaxX, geometry.MaxY),
+                new Coordinate(geometry.MinX, geometry.MaxY),
+                new Coordinate(geometry.MinX, geometry.MinY),
+            };
+            return ToPolygon(_factory.CreatePolygon(coordinates));
         }
 
         #endregion

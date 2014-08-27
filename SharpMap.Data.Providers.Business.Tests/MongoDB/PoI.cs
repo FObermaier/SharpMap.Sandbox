@@ -25,7 +25,9 @@ namespace SharpMap.Data.Providers.Business.Tests.MongoDB
 
         protected override IMongoQuery BuildEnvelopeQuery(Envelope box)
         {
-            return Query<PoI>.GeoIntersects(t => t.BsonGeometry, Converter.ToPolygon(box));        }
+            //return Query<PoI>.GeoIntersects(t => t.BsonGeometry, Converter.ToPolygon(box));        
+            return Query<PoI>.WithinRectangle(t => t.BsonGeometry, box.MinX, box.MinY, box.MaxX, box.MaxY);        
+        }
     }
 
     public class PoI//<T> where T : GeoJsonCoordinates

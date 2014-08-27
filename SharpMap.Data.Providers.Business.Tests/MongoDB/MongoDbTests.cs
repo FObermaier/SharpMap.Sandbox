@@ -1,4 +1,5 @@
 using System;
+using System.Drawing.Imaging;
 using System.Linq;
 using System.Threading;
 using Common.Logging;
@@ -7,6 +8,7 @@ using MongoDB.Driver;
 using MongoDB.Driver.GeoJsonObjectModel;
 using NUnit.Framework;
 using SharpMap.Converters;
+using SharpMap.Layers;
 
 namespace SharpMap.Data.Providers.Business.Tests.MongoDB
 {
@@ -123,6 +125,30 @@ namespace SharpMap.Data.Providers.Business.Tests.MongoDB
             extent = extent.Grow(-0.2*extent.Width, -0.2*extent.Height);
             Assert.Less(repo.Select(extent).Count(), 1000);
         }
+
+        [Test]
+        public void TestWithProvider()
+        {
+            MongoDBBusinessObjectRepository<PoI, GeoJson2DCoordinates> repo = null;
+            Assert.DoesNotThrow(() => repo =
+                new PoIRepository(
+                    GeoJsonConverter.Converter2D,
+                    TestConnection, TestDatabase, TestCollection));
+
+            var p = new BusinessObjectProvider<PoI>(TestCollection, repo);
+            var vl = new VectorLayer(p.ConnectionID, p);
+
+            var bl = new BusinessObjectLayer<PoI>(repo);
+
+            var m = new Map();
+            m.Layers.Add(vl);
+            m.Layers.Add(bl);
+            m.ZoomToExtents();
+            m.GetMap().Save("MongoDB.PoI.png", ImageFormat.Png);
+            m.Dispose();
+        }
+
+
         #region Poi generation
 
         private static readonly Random RND = new Random(6658475);

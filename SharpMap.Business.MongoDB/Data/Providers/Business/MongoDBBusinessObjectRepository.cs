@@ -87,6 +87,7 @@ namespace SharpMap.Data.Providers.Business
 
         public override IEnumerable<T> Select(Envelope box)
         {
+            box = GetExtents().Intersection(box);
             return _collection.Find(BuildEnvelopeQuery(box));
         }
 
