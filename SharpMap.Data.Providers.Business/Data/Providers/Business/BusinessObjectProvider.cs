@@ -87,6 +87,7 @@ namespace SharpMap.Data.Providers.Business
             {
                 var memberName = tuple.Item1;
                 var attributes = tuple.Item2;
+                if (attributes.Ignore) continue;
 
                 GetDelegates.Add(CreateGetFuncFor<TFeature>(memberName));
                 var col = SchemaTable.Columns.Add(memberName, TypeUtility<TFeature>.GetMemberType(memberName));

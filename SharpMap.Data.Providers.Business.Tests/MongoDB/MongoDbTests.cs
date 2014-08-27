@@ -1,10 +1,12 @@
 using System;
+using System.Linq;
 using System.Threading;
 using Common.Logging;
 using GeoAPI.Geometries;
 using MongoDB.Driver;
 using MongoDB.Driver.GeoJsonObjectModel;
 using NUnit.Framework;
+using SharpMap.Converters;
 
 namespace SharpMap.Data.Providers.Business.Tests.MongoDB
 {
@@ -80,7 +82,10 @@ namespace SharpMap.Data.Providers.Business.Tests.MongoDB
             if (!db.CreateCollection("Items").Ok)
                 throw new IgnoreException("Faild to create collection items");
 
-            var col = db.GetCollection<PoI<GeoJson2DCoordinates>>("Items");
+            //Assign the converter
+            PoI.Converter = GeoJsonConverter.Converter2D;
+            
+            var col = db.GetCollection<PoI>("Items");
             var factory = GeoAPI.GeometryServiceProvider.Instance.CreateGeometryFactory(4326);
             for (uint oid = 1; oid <= 1000; oid++)
             {
@@ -94,21 +99,37 @@ namespace SharpMap.Data.Providers.Business.Tests.MongoDB
         [Test]
         public void Test1()
         {
-            MongoDBBusinessObjectRepository<PoI<GeoJson2DCoordinates>> repo = null;
+            MongoDBBusinessObjectRepository<PoI, GeoJson2DCoordinates> repo = null;
             Assert.DoesNotThrow( () => repo =
-                new MongoDBBusinessObjectRepository<PoI<GeoJson2DCoordinates>>(TestConnection, TestDatabase, TestCollection));
+                new PoIRepository(
+                    GeoJsonConverter.Converter2D,
+                    TestConnection, TestDatabase, TestCollection));
 
             Assert.IsNotNull(repo);
             Assert.AreEqual(1000, repo.Count);
         }
 
+        [Test]
+        public void Test2()
+        {
+            MongoDBBusinessObjectRepository<PoI, GeoJson2DCoordinates> repo = null;
+            Assert.DoesNotThrow(() => repo =
+                new PoIRepository(
+                    GeoJsonConverter.Converter2D,
+                    TestConnection, TestDatabase, TestCollection));
+
+            Assert.IsNotNull(repo);
+            var extent = repo.GetExtents();
+            extent = extent.Grow(-0.2*extent.Width, -0.2*extent.Height);
+            Assert.Less(repo.Select(extent).Count(), 1000);
+        }
         #region Poi generation
 
         private static readonly Random RND = new Random(6658475);
 
-        private static PoI<GeoJson2DCoordinates> RndPoi(ref uint oid, IGeometryFactory factory)
+        private static PoI RndPoi(ref uint oid, IGeometryFactory factory)
         {
-            return new PoI<GeoJson2DCoordinates>
+            return new PoI
             {
                 Id = oid,
                 Label = string.Format("POI {0}", oid),

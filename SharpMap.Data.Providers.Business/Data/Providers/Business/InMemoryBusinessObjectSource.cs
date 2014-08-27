@@ -84,11 +84,17 @@ namespace SharpMap.Data.Providers.Business
         /// Creates an instance of this class
         /// </summary>
         public InMemoryBusinessObjectAccess()
+            :this(typeof(T).Name)
+        {}
+
+        /// <summary>
+        /// Creates an instance of this class, assigning a <see cref="Title"/>
+        /// </summary>
+        public InMemoryBusinessObjectAccess(string title)
         {
             _businessObjects = new Dictionary<uint, T>();
-            _title = typeof(T).Name;
+            _title = title;
         }
-
         /// <summary>
         /// Gets a value identifying the business object
         /// </summary>
@@ -120,7 +126,7 @@ namespace SharpMap.Data.Providers.Business
             foreach (T value in _businessObjects.Values)
             {
                 var g = _getGeometry(value);
-                if (prep.Intersects(g))
+                if (g != null && prep.Intersects(g))
                 {
                     yield return value;
                 }

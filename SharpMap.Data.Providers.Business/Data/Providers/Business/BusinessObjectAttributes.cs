@@ -24,7 +24,11 @@ namespace SharpMap.Data.Providers.Business
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
     public class BusinessObjectIdentifierAttribute : BusinessObjectAttributeAttribute
     {
-        public override int Ordinal { get { return 0; } set { throw new NotSupportedException();}}
+        public BusinessObjectIdentifierAttribute()
+        {
+            OrdinalValue = 0;
+        }
+
         public override bool IsUnique { get { return true; } set { throw new NotSupportedException(); } }
     }
 
@@ -42,10 +46,12 @@ namespace SharpMap.Data.Providers.Business
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = false)]
     public class BusinessObjectAttributeAttribute : Attribute
     {
+        protected int OrdinalValue = 9999;
+        
         /// <summary>
         /// Gets the ordinal
         /// </summary>
-        public virtual int Ordinal { get; set; }
+        public int Ordinal { get { return OrdinalValue; } set { OrdinalValue = value; } }
         /// <summary>
         /// Gets the name
         /// </summary>
@@ -70,6 +76,11 @@ namespace SharpMap.Data.Providers.Business
         /// Gets or sets a value indicating that the value is unique
         /// </summary>
         public virtual bool AllowNull { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating that the value does not matter
+        /// </summary>
+        public virtual bool Ignore { get; set; }
     }
 
 }
